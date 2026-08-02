@@ -216,3 +216,25 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Virtual environment
+venv/
+.venv/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Environment variables
+.env
+
+# Models
+models/
+*.pt
+*.pth
+*.bin
+*.gguf
+*.safetensors
+
+# IDE
+.vscode/
