@@ -16,21 +16,38 @@ approve/replace is safer and more predictable.
 
 from enum import Enum
 
+from dotenv import load_dotenv
 from crewai import Agent, Task, LLM
 from pydantic import BaseModel, Field
 
 from guardrails.task_guardrails import evaluator_guardrail
 
+# WORKAROUND for CrewAI issue #5886: CrewAI injects a `cache_breakpoint`
+# field into messages (meant for Anthropic-style prompt caching), but
+# doesn't strip it for other providers like Groq — which reject it as an
+# unsupported field, causing a BadRequestError. Monkey-patching this to a
+# no-op prevents the field from being injected at all. Safe to remove once
+# CrewAI ships an official fix for this.
+import crewai.llms.cache as _crewai_cache
+_crewai_cache.mark_cache_breakpoint = lambda msg: msg
+
+load_dotenv()
 
 
+# ---------------------------------------------------------------------------
+# LLM CONFIG — Groq (cloud, free tier). Low temperature: this is a judgment
+# call that should be consistent, not creative.
+# ---------------------------------------------------------------------------
 evaluator_llm = LLM(
-    model="ollama/llama3.2",
-    base_url="http://localhost:11434",
+    model="groq/llama-3.3-70b-versatile",
     temperature=0.1,
 )
 
 
-
+# ---------------------------------------------------------------------------
+# SAFE FALLBACK — used when Evaluator rejects Worker's reply. Generic,
+# warm, and safe regardless of what Worker got wrong.
+# ---------------------------------------------------------------------------
 SAFE_FALLBACK_MESSAGE = (
     "I can tell this matters to you, and I want to make sure I respond in "
     "a way that's genuinely helpful and safe.\n\n"
@@ -42,7 +59,9 @@ SAFE_FALLBACK_MESSAGE = (
 )
 
 
-
+# ---------------------------------------------------------------------------
+# OUTPUT SCHEMA
+# ---------------------------------------------------------------------------
 class EvaluatorOutput(BaseModel):
     approved: bool = Field(
         description="True if Worker's reply is safe, accurate, and appropriate "
@@ -59,7 +78,9 @@ class EvaluatorOutput(BaseModel):
     )
 
 
-
+# ---------------------------------------------------------------------------
+# AGENT DEFINITION
+# ---------------------------------------------------------------------------
 evaluator_agent = Agent(
     role="Final Safety Evaluator",
     goal=(
@@ -81,7 +102,9 @@ evaluator_agent = Agent(
 )
 
 
-
+# ---------------------------------------------------------------------------
+# TASK FACTORY
+# ---------------------------------------------------------------------------
 def build_evaluator_task(user_message: str, worker_reply: str, risk_level: str,
                           primary_emotion: str, retrieved_passages: str = "") -> Task:
     """
@@ -161,7 +184,11 @@ def get_final_reply(worker_reply: str, evaluation: EvaluatorOutput) -> str:
     return worker_reply if evaluation.approved else SAFE_FALLBACK_MESSAGE
 
 
-
+# ---------------------------------------------------------------------------
+# Standalone test — full pipeline: Screener -> Planner -> Retriever ->
+# Worker -> Evaluator -> Referral (if HIGH).
+# Run from project root: python -m agents.evaluator
+# ---------------------------------------------------------------------------
 if __name__ == "__main__":
     from crewai import Crew, Process
 

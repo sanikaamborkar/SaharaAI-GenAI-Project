@@ -6,18 +6,37 @@ passages Retriever found and shaped by Planner's risk/emotion classification.
 Uses local Ollama llama3.1, same as Planner.
 """
 
+from dotenv import load_dotenv
 from crewai import Agent, Task, LLM
 
 from guardrails.task_guardrails import worker_guardrail
 
+# WORKAROUND for CrewAI issue #5886: CrewAI injects a `cache_breakpoint`
+# field into messages (meant for Anthropic-style prompt caching), but
+# doesn't strip it for other providers like Groq — which reject it as an
+# unsupported field, causing a BadRequestError. Monkey-patching this to a
+# no-op prevents the field from being injected at all. Safe to remove once
+# CrewAI ships an official fix for this.
+import crewai.llms.cache as _crewai_cache
+_crewai_cache.mark_cache_breakpoint = lambda msg: msg
 
+load_dotenv()
+
+
+# ---------------------------------------------------------------------------
+# LLM CONFIG — Groq (cloud, free tier).
+# Slightly higher temperature than Planner: Worker needs to sound natural
+# and warm, not just classify, so a little more variation is appropriate.
+# ---------------------------------------------------------------------------
 worker_llm = LLM(
-    model="ollama/llama3.2",
-    base_url="http://localhost:11434",
+    model="groq/llama-3.3-70b-versatile",
     temperature=0.6,
 )
 
 
+# ---------------------------------------------------------------------------
+# AGENT DEFINITION
+# ---------------------------------------------------------------------------
 worker_agent = Agent(
     role="Supportive Response Writer",
     goal=(
@@ -62,7 +81,9 @@ worker_agent = Agent(
 )
 
 
-
+# ---------------------------------------------------------------------------
+# TASK FACTORY — builds a Task for a specific message + grounding context
+# ---------------------------------------------------------------------------
 def build_worker_task(user_message: str, grounding_context: str,
                        conversation_history: str = "") -> Task:
     """
@@ -147,7 +168,12 @@ def build_worker_task(user_message: str, grounding_context: str,
         guardrail=worker_guardrail,
     )
 
-
+# ---------------------------------------------------------------------------
+# Standalone test — wires Retriever + Planner + Worker together for one
+# message, since Worker depends on both of their outputs. This simulates
+# the real pipeline shape before crew.py exists.
+# Run from project root: python agents\worker.py
+# ---------------------------------------------------------------------------
 if __name__ == "__main__":
     from crewai import Crew, Process
 
