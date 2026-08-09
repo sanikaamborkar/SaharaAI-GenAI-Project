@@ -10,22 +10,28 @@ import chromadb
 from chromadb.utils import embedding_functions
 from crewai.tools import tool
 
-
+# ---------------------------------------------------------------------------
+# CONFIG — must match ingestion/build_chroma_db.py
+# Path is relative to the project ROOT (MLProject/), since crew.py / app.py
+# will be run from there, not from inside ingestion/.
+# ---------------------------------------------------------------------------
 CHROMA_PERSIST_DIR = "ingestion/chroma_db"
 COLLECTION_NAME = "mental_health_kb"
-EMBEDDING_MODEL = "nomic-embed-text:latest"
-OLLAMA_URL = "http://localhost:11434/api/embeddings"
+# Switched from Ollama's nomic-embed-text to an in-process SentenceTransformer
+# model — no background server needed, so this works on HF Spaces (which
+# can't run Ollama as a persistent daemon). all-MiniLM-L6-v2 is small (~80MB),
+# fast, and free — no API key required.
+EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 
-TOP_K = 3  # how many chunks to retrieve per query 
+TOP_K = 3  # how many chunks to retrieve per query (reduced from 4 for faster local CPU inference)
 
 
 def _get_collection():
     """Connect to the existing persisted collection (read-only usage)."""
     client = chromadb.PersistentClient(path=CHROMA_PERSIST_DIR)
 
-    embedding_fn = embedding_functions.OllamaEmbeddingFunction(
-        url=OLLAMA_URL,
-        model_name=EMBEDDING_MODEL,
+    embedding_fn = embedding_functions.SentenceTransformerEmbeddingFunction(
+        model_name=EMBEDDING_MODEL
     )
 
     return client.get_collection(
@@ -103,6 +109,15 @@ def rag_search_tool(query: str, condition_tag: str = "", country: str = "") -> s
         country=country or None,
     )
 
+
+# ---------------------------------------------------------------------------
+# Standalone test — run this file directly to sanity check retrieval
+# before wiring it into the CrewAI pipeline.
+#
+# IMPORTANT: run this from the MLProject/ root, not from inside tools/,
+# e.g.:  (venv) PS C:\Users\Shravani\Desktop\MLProject> python tools\rag_search_tool.py
+# Otherwise the relative path "ingestion/chroma_db" won't resolve.
+# ---------------------------------------------------------------------------
 if __name__ == "__main__":
     test_queries = [
         ("I feel hopeless and can't sleep, what is depression?", None, None),
