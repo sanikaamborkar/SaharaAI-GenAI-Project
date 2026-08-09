@@ -27,7 +27,9 @@ from crewai import Agent
 from tools.mentalbert_tool import mentalbert_screen, _classify
 
 
-
+# ---------------------------------------------------------------------------
+# FAST PATH — direct classifier call, no LLM overhead (recommended)
+# ---------------------------------------------------------------------------
 def get_screener_signal(message: str) -> str:
     """
     Runs MentalBERT directly and returns the formatted signal string,
@@ -38,6 +40,9 @@ def get_screener_signal(message: str) -> str:
     return mentalbert_screen.func(message)
 
 
+# ---------------------------------------------------------------------------
+# AGENT DEFINITION — kept for architectural completeness
+# ---------------------------------------------------------------------------
 screener_agent = Agent(
     role="Distress Screener",
     goal=(
@@ -59,6 +64,9 @@ screener_agent = Agent(
 )
 
 
+# ---------------------------------------------------------------------------
+# Standalone test — run from project root: python -m agents.screener
+# ---------------------------------------------------------------------------
 if __name__ == "__main__":
     test_messages = [
         "I had a great day at college today!",

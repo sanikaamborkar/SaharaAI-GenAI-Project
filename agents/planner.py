@@ -13,20 +13,39 @@ Pure LLM reasoning — no external tool file needed.
 
 from enum import Enum
 
+from dotenv import load_dotenv
 from crewai import Agent, Task, Crew, Process, LLM
 from pydantic import BaseModel, Field
 
 from guardrails.task_guardrails import make_planner_guardrail
 
+# WORKAROUND for CrewAI issue #5886: CrewAI injects a `cache_breakpoint`
+# field into messages (meant for Anthropic-style prompt caching), but
+# doesn't strip it for other providers like Groq — which reject it as an
+# unsupported field, causing a BadRequestError. Monkey-patching this to a
+# no-op prevents the field from being injected at all. Safe to remove once
+# CrewAI ships an official fix for this.
+import crewai.llms.cache as _crewai_cache
+_crewai_cache.mark_cache_breakpoint = lambda msg: msg
+
+load_dotenv()  # reads GROQ_API_KEY from a .env file in the project root
 
 
+# ---------------------------------------------------------------------------
+# LLM CONFIG — Groq (cloud, free tier). Requires GROQ_API_KEY in .env.
+# CrewAI routes non-native providers through LiteLLM; "groq/" prefix selects
+# the Groq provider. llama-3.3-70b-versatile is a strong, free-tier-eligible
+# open-source model served on Groq's fast LPU hardware.
+# ---------------------------------------------------------------------------
 planner_llm = LLM(
-    model="ollama/llama3.2",
-    base_url="http://localhost:11434",
+    model="groq/llama-3.3-70b-versatile",
     temperature=0.2,  # low temperature: we want consistent classification, not creativity
 )
 
 
+# ---------------------------------------------------------------------------
+# OUTPUT SCHEMA — the structured contract Planner must return
+# ---------------------------------------------------------------------------
 class RiskLevel(str, Enum):
     LOW = "LOW"
     MODERATE = "MODERATE"
@@ -84,7 +103,9 @@ class PlannerOutput(BaseModel):
     )
 
 
-
+# ---------------------------------------------------------------------------
+# AGENT DEFINITION
+# ---------------------------------------------------------------------------
 planner_agent = Agent(
     role="Risk & Emotion Planner",
     goal=(
@@ -108,7 +129,9 @@ planner_agent = Agent(
 )
 
 
-
+# ---------------------------------------------------------------------------
+# TASK FACTORY — builds a Task for a specific message
+# ---------------------------------------------------------------------------
 def build_planner_task(user_message: str, screener_signal: str = "",
                         conversation_history: str = "") -> Task:
     """
@@ -160,7 +183,11 @@ def build_planner_task(user_message: str, screener_signal: str = "",
     )
 
 
-
+# ---------------------------------------------------------------------------
+# Standalone test — run this file directly to sanity check Planner's
+# classifications before wiring it into the full crew.
+# Run from project root: python agents\planner.py
+# ---------------------------------------------------------------------------
 if __name__ == "__main__":
     test_messages = [
         "What is depression and how common is it?",

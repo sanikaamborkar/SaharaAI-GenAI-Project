@@ -13,7 +13,9 @@ from crewai import Agent
 from tools.helpline_tool import helpline_lookup_tool, get_helplines, DEFAULT_COUNTRY
 
 
-
+# ---------------------------------------------------------------------------
+# FAST PATH — direct lookup, no LLM overhead (recommended)
+# ---------------------------------------------------------------------------
 def get_referral_message(country: str = DEFAULT_COUNTRY) -> str:
     """
     Returns a formatted block of verified regional helplines, ready to be
@@ -29,7 +31,9 @@ def get_referral_message(country: str = DEFAULT_COUNTRY) -> str:
     )
 
 
-
+# ---------------------------------------------------------------------------
+# AGENT DEFINITION — kept for architectural completeness
+# ---------------------------------------------------------------------------
 referral_agent = Agent(
     role="Crisis Referral Specialist",
     goal=(
@@ -50,6 +54,9 @@ referral_agent = Agent(
 )
 
 
+# ---------------------------------------------------------------------------
+# Standalone test — run from project root: python -m agents.referral
+# ---------------------------------------------------------------------------
 if __name__ == "__main__":
     for country in ["India", "United States", "United Kingdom"]:
         print(f"\n{'=' * 60}")
