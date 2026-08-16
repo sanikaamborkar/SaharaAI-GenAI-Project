@@ -1,7 +1,7 @@
 """
 crew.py
 
-Wires the full pipeline together into one function:
+
 Input guardrail -> Screener -> Planner -> Retriever -> Worker ->
 Evaluator -> Referral (if HIGH) -> final response.
 
@@ -120,7 +120,7 @@ def run_pipeline(user_message: str, conversation_history: list = None,
     # Skip the LLM call entirely for LOW risk — informational questions
     # carry much less safety stakes than MODERATE/HIGH, so paying for a
     # full evaluation LLM call on every single one is disproportionate.
-  
+
     if classification.risk_level == RiskLevel.LOW:
         final_reply = worker_reply
         evaluation = EvaluatorOutput(
