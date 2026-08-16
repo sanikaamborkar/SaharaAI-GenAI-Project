@@ -1,7 +1,7 @@
 """
 crew.py
 
-Wires the full SereneShield pipeline together into one function:
+
 Input guardrail -> Screener -> Planner -> Retriever -> Worker ->
 Evaluator -> Referral (if HIGH) -> final response.
 
@@ -33,8 +33,7 @@ from agents.worker import worker_agent, build_worker_task
 from agents.evaluator import evaluator_agent, build_evaluator_task, EvaluatorOutput, get_final_reply
 from agents.referral import get_referral_message
 
-# How many recent turns of conversation history to include as context.
-# Kept simple (last N turns, not summarized) — sufficient for now.
+
 MAX_HISTORY_TURNS = 6
 
 
@@ -121,8 +120,7 @@ def run_pipeline(user_message: str, conversation_history: list = None,
     # Skip the LLM call entirely for LOW risk — informational questions
     # carry much less safety stakes than MODERATE/HIGH, so paying for a
     # full evaluation LLM call on every single one is disproportionate.
-    # This is a real latency win: one fewer sequential LLM call for what
-    # is usually the most common message type.
+
     if classification.risk_level == RiskLevel.LOW:
         final_reply = worker_reply
         evaluation = EvaluatorOutput(
