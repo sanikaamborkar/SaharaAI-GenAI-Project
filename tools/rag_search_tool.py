@@ -10,22 +10,20 @@ import chromadb
 from chromadb.utils import embedding_functions
 from crewai.tools import tool
 
-
+# ---------------------------------------------------------------------------
 CHROMA_PERSIST_DIR = "ingestion/chroma_db"
 COLLECTION_NAME = "mental_health_kb"
-EMBEDDING_MODEL = "nomic-embed-text:latest"
-OLLAMA_URL = "http://localhost:11434/api/embeddings"
+EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 
-TOP_K = 3  # how many chunks to retrieve per query 
+TOP_K = 3  # how many chunks to retrieve per query (reduced from 4 for faster local CPU inference)
 
 
 def _get_collection():
     """Connect to the existing persisted collection (read-only usage)."""
     client = chromadb.PersistentClient(path=CHROMA_PERSIST_DIR)
 
-    embedding_fn = embedding_functions.OllamaEmbeddingFunction(
-        url=OLLAMA_URL,
-        model_name=EMBEDDING_MODEL,
+    embedding_fn = embedding_functions.SentenceTransformerEmbeddingFunction(
+        model_name=EMBEDDING_MODEL
     )
 
     return client.get_collection(
@@ -103,6 +101,8 @@ def rag_search_tool(query: str, condition_tag: str = "", country: str = "") -> s
         country=country or None,
     )
 
+
+# ---------------------------------------------------------------------------
 if __name__ == "__main__":
     test_queries = [
         ("I feel hopeless and can't sleep, what is depression?", None, None),
